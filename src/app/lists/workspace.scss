@@ -484,6 +484,8 @@ h1 {
   color: var(--accent);
 }
 .task-section {
+  container-type: inline-size;
+  container-name: section;
   margin-bottom: 21px;
   background: var(--surface);
   border: 1px solid var(--line);
@@ -509,13 +511,6 @@ h1 {
   background: none;
   text-align: left;
   min-width: 0;
-}
-.section-toggle h2 {
-  font-weight: 700;
-  font-size: 14px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .section-number {
   font:
@@ -1176,9 +1171,6 @@ input[type='checkbox'] {
   .section-toggle {
     gap: 6px;
   }
-  .section-toggle h2 {
-    font-size: 12px;
-  }
   .section-number {
     width: 21px;
     height: 21px;
@@ -1302,12 +1294,6 @@ input[type='checkbox'] {
   }
 }
 @media (max-width: 600px) {
-  .section-toggle h2 {
-    white-space: normal;
-    overflow: visible;
-    line-height: 1.45;
-    overflow-wrap: anywhere;
-  }
   .section-toggle {
     align-items: flex-start;
   }
@@ -1389,6 +1375,30 @@ input[type='checkbox'] {
     gap: 8px;
   }
   .undo-bar kbd {
+    display: none;
+  }
+}
+
+.section-children {
+  padding: 0 14px 0 24px;
+  border-left: 2px solid var(--line);
+  margin: 0 12px 14px 20px;
+}
+.section-children .task-section {
+  margin-bottom: 12px;
+}
+@media (max-width: 600px) {
+  .section-children {
+    padding: 0 0 0 7px;
+    margin: 0 3px 10px 5px;
+  }
+}
+
+.section-heading app-section-heading {
+  margin-inline: 4px;
+}
+@media (max-width: 600px) {
+  .section-children .section-number {
     display: none;
   }
 }

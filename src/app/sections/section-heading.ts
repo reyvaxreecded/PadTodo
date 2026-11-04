@@ -250,6 +250,20 @@ export class SectionHeading {
       }
     }, 0);
   }
+  captureEditing() {
+    const el = this.editor?.nativeElement;
+    return this.editing() && el && el.ownerDocument.activeElement === el
+      ? { text: this.text(), start: el.selectionStart, end: el.selectionEnd }
+      : undefined;
+  }
+  restoreEditing(state: { text: string; start: number; end: number }) {
+    this.text.set(state.text);
+    this.editing.set(true);
+    setTimeout(() => {
+      this.editor?.nativeElement.focus();
+      this.editor?.nativeElement.setSelectionRange(state.start, state.end);
+    }, 0);
+  }
   write(event: Event) {
     this.text.set((event.target as HTMLTextAreaElement).value);
     if (!this.conflict()) this.error.set('');
@@ -334,12 +348,16 @@ export class SectionHeading {
       void this.save();
     }
   }
+  continuing = false;
   async finish(next = false) {
     if (!this.text().trim()) {
       this.cancel();
       return;
     }
-    if (await this.save()) {
+    this.continuing = next;
+    const saved = await this.save();
+    this.continuing = false;
+    if (saved && !this.destroy.destroyed) {
       this.editing.set(false);
       if (next) this.continueWriting.emit();
     }

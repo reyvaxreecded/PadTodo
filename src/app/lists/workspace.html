@@ -288,17 +288,26 @@
             filtered() ? 'Déplacement désactivé pendant le filtrage' : 'Glissez pour réorganiser'
           }}</span>
         </div>
-        <div
-          class="sections"
-          cdkDropList
-          [cdkDropListData]="current.sections"
-          [cdkDropListDisabled]="filtered() || busy()"
-          (cdkDropListDropped)="dropSections($event)"
-        >
-          <div cdkDropListGroup>
-            @for (section of current.sections; track section.id) {
-              @if (!filtered() || tasks(section).length || showEmpty()) {
-                <section class="task-section" cdkDrag [cdkDragDisabled]="filtered() || busy()">
+        <div class="sections">
+          <ng-container *ngTemplateOutlet="sectionBranch; context: { $implicit: sectionTree() }" />
+        </div>
+        <ng-template #sectionBranch let-branches>
+          <div
+            class="section-branch"
+            cdkDropList
+            [cdkDropListData]="branches"
+            [cdkDropListDisabled]="filtered() || busy()"
+            (cdkDropListDropped)="dropSections($event)"
+          >
+            @for (section of branches; track section.id) {
+              @if (sectionVisible(section)) {
+                <section
+                  class="task-section"
+                  [attr.data-section-id]="section.id"
+                  cdkDrag
+                  [cdkDragData]="section"
+                  [cdkDragDisabled]="filtered() || busy()"
+                >
                   <div class="section-heading">
                     <button
                       class="icon-button section-grip"
@@ -321,7 +330,7 @@
                         name="chevron"
                       />
                       <span class="section-number" aria-hidden="true">{{
-                        ($index + 1).toString().padStart(2, '0')
+                        sectionNumber(section.id)
                       }}</span>
                     </button>
                     <app-section-heading
@@ -369,6 +378,7 @@
                       cdkDropList
                       [id]="section.id"
                       [cdkDropListData]="tasks(section)"
+                      [cdkDropListConnectedTo]="taskDropIds()"
                       [cdkDropListDisabled]="filtered() || busy()"
                       (cdkDropListDropped)="dropTask($event)"
                     >
@@ -440,12 +450,22 @@
                       (headingCommitted)="headingComposed($event)"
                       (cancel)="cancelNew(section)"
                     />
+                    @if (section.children.length) {
+                      <div class="section-children">
+                        <ng-container
+                          *ngTemplateOutlet="
+                            sectionBranch;
+                            context: { $implicit: section.children }
+                          "
+                        />
+                      </div>
+                    }
                   }
                 </section>
               }
             }
           </div>
-        </div>
+        </ng-template>
         @if (filtered() && !resultCount()) {
           <div class="empty-state small">
             <app-icon name="search" />

@@ -9,6 +9,8 @@ import {
   QueryList,
   DOCUMENT,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import { sectionTree, flattenSections, type SectionNode } from '../sections/tree';
 import { CdkTrapFocus } from '@angular/cdk/a11y';
 import {
   FormsModule,
@@ -21,7 +23,6 @@ import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import {
   CdkDrag,
   CdkDropList,
-  CdkDropListGroup,
   CdkDragHandle,
   type CdkDragDrop,
   moveItemInArray,
@@ -65,6 +66,7 @@ type Dialog = {
 @Component({
   selector: 'app-workspace',
   imports: [
+    NgTemplateOutlet,
     FormsModule,
     ReactiveFormsModule,
     RouterLink,
@@ -77,7 +79,6 @@ type Dialog = {
     CategoryManager,
     CdkDrag,
     CdkDropList,
-    CdkDropListGroup,
     CdkDragHandle,
     CdkTrapFocus,
   ],
@@ -143,6 +144,21 @@ export class Workspace implements OnInit {
         ]) ?? [],
       ),
   );
+  sectionTree = computed(() => sectionTree(this.list()?.sections ?? []));
+  taskDropIds = computed(() => this.list()?.sections.map((s) => s.id) ?? []);
+  sectionVisible(section: SectionNode): boolean {
+    return (
+      !this.filtered() ||
+      this.showEmpty() ||
+      !!this.tasks(section).length ||
+      section.children.some((child) => this.sectionVisible(child))
+    );
+  }
+  sectionNumber(id: string) {
+    return ((this.list()?.sections.findIndex((s) => s.id === id) ?? -1) + 1)
+      .toString()
+      .padStart(2, '0');
+  }
   resultCount = computed(() => [...this.visible().values()].reduce((n, t) => n + t.length, 0));
   stale = computed(() => {
     const selected = this.selected();
@@ -318,6 +334,9 @@ export class Workspace implements OnInit {
     this.headings.find((h) => h.section().id === section.id)?.edit();
   }
   sectionChanged(section: Section) {
+    const editor = this.headings.find((h) => h.section().id === section.id);
+    const state = editor?.captureEditing();
+    const continuing = editor?.continuing;
     this.list.update((l) =>
       l
         ? {
@@ -328,6 +347,15 @@ export class Workspace implements OnInit {
           }
         : l,
     );
+    if (state) this.revealSection(section.id);
+    if (state)
+      setTimeout(() => {
+        const next = this.headings.find((h) => h.section().id === section.id);
+        if (next && next !== editor) {
+          if (continuing) this.focusQuick(section.id);
+          else next.restoreEditing(state);
+        }
+      }, 0);
     this.scheduleRefresh();
   }
   async startNote() {
@@ -710,14 +738,31 @@ export class Workspace implements OnInit {
     moveItemInArray(items, event.previousIndex, event.currentIndex);
     await this.act(() => this.api.send('PATCH', '/lists/reorder', { ids: items.map((l) => l.id) }));
   }
-  async dropSections(event: CdkDragDrop<Section[]>) {
+  async dropSections(event: CdkDragDrop<SectionNode[]>) {
     if (this.filtered() || event.previousIndex === event.currentIndex) return;
-    const l = this.list();
-    if (!l) return;
-    const items = reordered(l.sections, event.previousIndex, event.currentIndex);
+    await this.reorderBranch(event.container.data, event.previousIndex, event.currentIndex);
+  }
+  private async reorderBranch(branch: SectionNode[], from: number, to: number) {
+    const list = this.list();
+    if (!list || to < 0 || to >= branch.length) return;
+    const roots = this.sectionTree();
+    const moved = reordered(branch, from, to);
+    const replace = (nodes: SectionNode[]): SectionNode[] =>
+      nodes === branch
+        ? moved
+        : nodes.map((node) => ({ ...node, children: replace(node.children) }));
+    const items = flattenSections(replace(roots));
     await this.act(() =>
-      this.api.send('PATCH', '/sections/reorder', { listId: l.id, ids: items.map((s) => s.id) }),
+      this.api.send('PATCH', '/sections/reorder', { listId: list.id, ids: items.map((s) => s.id) }),
     );
+  }
+  private branchFor(id: string, nodes = this.sectionTree()): SectionNode[] | undefined {
+    if (nodes.some((s) => s.id === id)) return nodes;
+    for (const node of nodes) {
+      const found = this.branchFor(id, node.children);
+      if (found) return found;
+    }
+    return undefined;
   }
   async dropTask(event: CdkDragDrop<Task[], Task[], Task>) {
     if (this.filtered()) return;
@@ -733,19 +778,26 @@ export class Workspace implements OnInit {
     );
   }
   async moveSection(section: Section, direction: number) {
-    const l = this.list();
-    if (!l) return;
-    const items = [...l.sections];
-    const index = items.findIndex((s) => s.id === section.id);
-    const next = index + direction;
-    if (next < 0 || next >= items.length) return;
-    moveItemInArray(items, index, next);
-    await this.act(() =>
-      this.api.send('PATCH', '/sections/reorder', { listId: l.id, ids: items.map((s) => s.id) }),
-    );
+    const branch = this.branchFor(section.id);
+    if (!branch) return;
+    const index = branch.findIndex((s) => s.id === section.id);
+    await this.reorderBranch(branch, index, index + direction);
+  }
+  private revealSection(id: string) {
+    const ancestors = (nodes: SectionNode[], path: string[] = []): string[] | undefined => {
+      for (const node of nodes) {
+        if (node.id === id) return [...path, id];
+        const found = ancestors(node.children, [...path, node.id]);
+        if (found) return found;
+      }
+      return undefined;
+    };
+    for (const sectionId of ancestors(this.sectionTree()) ?? [id]) {
+      if (this.prefs.collapsed().includes(sectionId)) this.prefs.toggleSection(sectionId);
+    }
   }
   focusQuick(id: string) {
-    if (this.prefs.collapsed().includes(id)) this.prefs.toggleSection(id);
+    this.revealSection(id);
     setTimeout(() => document.getElementById('quick-' + id)?.focus(), 0);
   }
 }

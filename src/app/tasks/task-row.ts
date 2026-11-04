@@ -450,6 +450,17 @@ import {
           top: 7px;
         }
       }
+      @media (max-width: 600px) {
+        @container section (max-width: 280px) {
+          :host {
+            grid-template-rows: auto 24px 24px;
+          }
+          .row-priority {
+            grid-row: 3;
+            justify-self: start;
+          }
+        }
+      }
     `,
   ],
 })

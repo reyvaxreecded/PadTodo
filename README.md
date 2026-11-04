@@ -107,7 +107,7 @@ Dans une nouvelle ligne ou le titre d’une note, écrivez un à six `#`, un esp
 ###### Détails
 ```
 
-La ligne devient une section partagée, avec un niveau de titre de 1 à 6, une taille distincte et un niveau accessible correspondant. Le curseur continue dans la nouvelle section. Les sections restent indépendantes : ces niveaux expriment la hiérarchie visuelle, sans ajouter de sous-sections imbriquées.
+La ligne devient une section partagée, avec un niveau de titre de 1 à 6, une taille distincte et un niveau accessible correspondant. Le curseur continue dans la nouvelle section. Les sections s’imbriquent automatiquement : chaque titre appartient au titre précédent le plus proche de niveau inférieur. Un nouveau titre de même niveau ferme la sous-section précédente. Les niveaux manquants sont autorisés (un niveau 3 peut suivre directement un niveau 1). Replier un parent masque toute sa branche ; le déplacer emporte ses sous-sections. Modifier un niveau réorganise immédiatement cette hiérarchie.
 
 Si le titre est créé au milieu d’une section, les lignes suivantes passent sous le nouveau titre dans une transaction PostgreSQL. Transformer une note existante conserve son contexte : il devient une note sous le titre. Le même préfixe peut changer le niveau d’une section lors de son renommage. Un simple `# ` attend son intitulé ; `#bug42` sans espace et les `#` au milieu d’un texte restent du texte normal. Les niveaux sont conservés après rechargement et diffusés aux autres navigateurs.
 
@@ -223,3 +223,8 @@ Migration des niveaux appliquée ; **14 tests API / texte** et **13 parcours E2E
 ## Édition directe des titres de section
 
 Les titres se modifient sur place au clic, avec sauvegarde automatique et changement de niveau par préfixe Markdown. Entrée poursuit la prise de notes, Échap annule les caractères non enregistrés. Les brouillons restent éditables pendant les requêtes et les conflits proposent un choix explicite. Validation : **15 parcours E2E réussis**, dont deux nouveaux tests consacrés à cette édition ; TypeScript, formatage et build réussis.
+
+
+## Sections imbriquées
+
+La hiérarchie est déduite des niveaux et de l’ordre partagés des titres, sans migration supplémentaire. Les sous-sections se replient avec leur parent ; les déplacements de sections déplacent leur branche. Les filtres conservent les parents des résultats, et les changements de niveau gardent le curseur pendant l’édition. Vérification : **17 parcours E2E réussis**, build et formatage validés, contrôle visuel sur mobile jusqu’à six niveaux.

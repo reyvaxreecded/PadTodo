@@ -71,8 +71,11 @@ test('écrire #, ## ou ###### crée des titres et poursuit la rédaction dans la
     const block = page
       .locator('.task-section')
       .filter({ has: page.getByRole('heading', { name: 'Décisions', level: 1, exact: true }) });
-    await block.locator('summary').click();
-    await block.getByRole('button', { name: 'Renommer', exact: true }).click();
+    await block.locator(':scope > .section-heading summary').click();
+    await block
+      .locator(':scope > .section-heading')
+      .getByRole('button', { name: 'Renommer', exact: true })
+      .click();
     const renamed = page.getByRole('textbox', { name: 'Nouveau titre de la section' });
     await renamed.fill('## Décisions renommées');
     await renamed.press('Enter');
