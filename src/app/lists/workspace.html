@@ -1,0 +1,617 @@
+<div
+  class="app-shell"
+  [class.sidebar-collapsed]="prefs.compact()"
+  [class.mobile-navigation-open]="mobileNavOpen()"
+>
+  @if (mobileNavOpen()) {
+    <button
+      class="mobile-nav-scrim"
+      aria-label="Fermer la navigation"
+      (click)="mobileNavOpen.set(false)"
+    ></button>
+  }
+  <aside class="sidebar" aria-label="Navigation des projets" [cdkTrapFocus]="mobileNavOpen()">
+    <a class="brand" routerLink="/" aria-label="PadTodo, accueil"
+      ><span class="brand-mark"><app-icon name="check" /></span
+      ><span class="sidebar-label">padtodo<span class="brand-period">.</span></span></a
+    >
+    <div class="workspace-label sidebar-label">
+      <span class="workspace-avatar">E</span>
+      <div>Espace de l’équipe<small>Connectée en temps réel</small></div>
+      <span class="shared-dot"></span>
+    </div>
+    <div class="nav-heading">
+      <span class="sidebar-label">VOS PROJETS</span
+      ><button
+        class="icon-button"
+        aria-label="Créer une liste"
+        title="Nouvelle liste"
+        [disabled]="busy()"
+        (click)="openList()"
+      >
+        <app-icon name="plus" />
+      </button>
+    </div>
+    <nav
+      cdkDropList
+      [cdkDropListData]="lists()"
+      [cdkDropListDisabled]="busy()"
+      (cdkDropListDropped)="dropLists($event)"
+    >
+      @for (item of lists(); track item.id) {
+        <div cdkDrag class="nav-item" [class.active]="list()?.id === item.id">
+          <a
+            [routerLink]="['/lists', item.id]"
+            [title]="item.name"
+            (click)="mobileNavOpen.set(false)"
+            ><span class="project-dot" [style.background]="item.color"></span
+            ><span class="nav-name sidebar-label">{{ item.name }}</span
+            ><span class="count sidebar-label">{{ item.openTasks ?? 0 }}</span></a
+          >
+          <button
+            cdkDragHandle
+            class="nav-drag icon-button sidebar-label"
+            aria-label="Réorganiser la liste"
+          >
+            <app-icon name="grip" />
+          </button>
+        </div>
+      }
+    </nav>
+    <button class="new-project sidebar-label" [disabled]="busy()" (click)="openList()">
+      <app-icon name="plus" /> Nouvelle liste
+    </button>
+    <div class="sidebar-bottom">
+      <div class="sidebar-controls">
+        <button
+          class="icon-button desktop-nav-toggle"
+          (click)="prefs.toggleSidebar()"
+          [attr.aria-label]="prefs.compact() ? 'Déployer la navigation' : 'Réduire la navigation'"
+        >
+          <app-icon name="panel" />
+        </button>
+        <button
+          class="icon-button mobile-nav-toggle"
+          [attr.aria-expanded]="mobileNavOpen()"
+          [attr.aria-label]="mobileNavOpen() ? 'Fermer les projets' : 'Afficher les projets'"
+          (click)="mobileNavOpen.set(!mobileNavOpen())"
+        >
+          <app-icon [name]="mobileNavOpen() ? 'close' : 'panel'" /><span>{{
+            mobileNavOpen() ? 'Fermer' : 'Projets'
+          }}</span>
+        </button>
+        <span class="sidebar-label">ESPACE PARTAGÉ</span
+        ><button
+          class="icon-button"
+          (click)="prefs.toggleTheme()"
+          [attr.aria-label]="prefs.dark() ? 'Activer le thème clair' : 'Activer le thème sombre'"
+        >
+          <app-icon [name]="prefs.dark() ? 'sun' : 'moon'" />
+        </button>
+      </div>
+    </div>
+  </aside>
+  <div class="main-shell">
+    <header class="topbar">
+      <div class="breadcrumb">
+        <app-icon name="layers" /><span>Espace partagé</span><span class="breadcrumb-slash">/</span
+        ><strong>{{ list()?.name ?? 'Vos projets' }}</strong>
+      </div>
+      <div class="sync-indicator" [class.offline]="realtime.state() !== 'online'">
+        <span></span
+        >{{
+          busy()
+            ? 'Enregistrement…'
+            : realtime.state() === 'online'
+              ? 'Synchronisé'
+              : realtime.state() === 'offline'
+                ? 'Reconnexion en cours…'
+                : 'Connexion…'
+        }}
+      </div>
+    </header>
+    <main>
+      @if (error()) {
+        <div class="network-error" role="alert">
+          <app-icon name="info" />
+          <p>{{ error() }}</p>
+          <button class="button" (click)="load(true)"><app-icon name="refresh" /> Réessayer</button>
+        </div>
+      }
+      @if (loading()) {
+        <div class="loading-state" role="status">
+          <span class="spinner"></span> Chargement de l’espace partagé…
+        </div>
+      } @else if (list(); as current) {
+        <div class="project-heading">
+          <div class="project-identity">
+            <div class="eyebrow">
+              <span [style.background]="current.color"></span> PROJET PARTAGÉ
+            </div>
+            <div class="title-row">
+              <h1>{{ current.name }}</h1>
+              <button
+                class="icon-button settings-button"
+                aria-label="Paramètres de la liste"
+                (click)="openList(current)"
+              >
+                <app-icon name="more" />
+              </button>
+            </div>
+            <p class="project-description">
+              {{ current.description || 'Un espace pour avancer ensemble, une tâche à la fois.' }}
+            </p>
+          </div>
+          <div class="project-progress" aria-label="Progression du projet">
+            <div class="progress-value">
+              <strong>{{ progress() }}<span>%</span></strong
+              ><span>TERMINÉ</span>
+            </div>
+            <div
+              class="progress-track"
+              role="progressbar"
+              [attr.aria-valuenow]="progress()"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-label="Tâches terminées"
+            >
+              <span [style.width.%]="progress()"></span>
+            </div>
+            <span class="progress-caption"
+              >{{ done() }} sur {{ allTasks().length }} tâches terminées</span
+            >
+          </div>
+        </div>
+        <div class="view-tabs">
+          <div class="active-view">
+            <app-icon name="text" /> Notes &amp; tâches <span>{{ allTasks().length }}</span>
+          </div>
+          <button class="text-button" (click)="settings.set(!settings())">
+            <app-icon name="settings" /> Catégories
+          </button>
+        </div>
+        @if (settings()) {
+          <app-category-manager
+            [categories]="current.categories"
+            (edit)="openCategory($event)"
+            (remove)="deleteCategory($event)"
+            (create)="openCategory()"
+          />
+        }
+        <div class="toolbar">
+          <label class="search"
+            ><app-icon name="search" /><input
+              aria-label="Rechercher une tâche"
+              placeholder="Rechercher une tâche…"
+              [ngModel]="filters().search"
+              (ngModelChange)="updateFilter({ search: $event })"
+          /></label>
+          <div class="toolbar-actions">
+            <button
+              class="button filter-toggle"
+              [class.is-active]="showFilters() || filtered()"
+              [attr.aria-expanded]="showFilters()"
+              (click)="showFilters.set(!showFilters())"
+            >
+              <app-icon name="filter" /> Filtres
+              @if (filtered()) {
+                <span class="filter-dot"></span>
+              }</button
+            ><button class="button primary" [disabled]="busy()" (click)="openSection()">
+              <app-icon name="plus" /> <span>Nouvelle section</span>
+            </button>
+          </div>
+        </div>
+        <app-writing-guide (start)="startNote()" />
+        @if (showFilters()) {
+          <section class="filters-panel" aria-label="Filtres des tâches">
+            <div>
+              <span class="filter-label">Statut</span>
+              <div class="filter-options">
+                @for (s of STATUSES; track s) {
+                  <button
+                    class="filter-chip"
+                    [class.selected]="filters().statuses.includes(s)"
+                    [attr.aria-pressed]="filters().statuses.includes(s)"
+                    (click)="toggleFilter('statuses', s)"
+                  >
+                    {{ STATUS[s] }}
+                  </button>
+                }
+              </div>
+            </div>
+            <div>
+              <span class="filter-label">Priorité</span>
+              <div class="filter-options">
+                @for (p of PRIORITIES; track p) {
+                  <button
+                    class="filter-chip"
+                    [class.selected]="filters().priorities.includes(p)"
+                    [attr.aria-pressed]="filters().priorities.includes(p)"
+                    (click)="toggleFilter('priorities', p)"
+                  >
+                    {{ PRIORITY[p] }}
+                  </button>
+                }
+              </div>
+            </div>
+            <div>
+              <span class="filter-label">Catégorie</span>
+              <div class="filter-options">
+                @for (c of current.categories; track c.id) {
+                  <button
+                    class="filter-chip"
+                    [class.selected]="filters().categories.includes(c.id)"
+                    [attr.aria-pressed]="filters().categories.includes(c.id)"
+                    (click)="toggleFilter('categories', c.id)"
+                  >
+                    <span class="project-dot" [style.background]="c.color"></span>{{ c.name }}
+                  </button>
+                }
+                <button
+                  class="filter-chip"
+                  [class.selected]="filters().categories.includes('none')"
+                  (click)="toggleFilter('categories', 'none')"
+                >
+                  Sans catégorie
+                </button>
+              </div>
+            </div>
+            <div class="filter-footer">
+              <label
+                ><input
+                  type="checkbox"
+                  [ngModel]="filters().hideDone"
+                  (ngModelChange)="updateFilter({ hideDone: $event })"
+                />
+                Masquer les tâches terminées</label
+              ><label
+                ><input
+                  type="checkbox"
+                  [ngModel]="showEmpty()"
+                  (ngModelChange)="showEmpty.set($event)"
+                />
+                Afficher les sections vides</label
+              ><button class="text-button" (click)="resetFilters()">Réinitialiser</button>
+            </div>
+          </section>
+        }
+        <div class="list-caption">
+          <span
+            >{{
+              filtered() ? resultCount() + ' résultat(s)' : current.sections.length + ' section(s)'
+            }}
+            @if (filtered()) {
+              <button class="text-button" (click)="resetFilters()">Effacer les filtres</button>
+            }</span
+          ><span>{{
+            filtered() ? 'Déplacement désactivé pendant le filtrage' : 'Glissez pour réorganiser'
+          }}</span>
+        </div>
+        <div
+          class="sections"
+          cdkDropList
+          [cdkDropListData]="current.sections"
+          [cdkDropListDisabled]="filtered() || busy()"
+          (cdkDropListDropped)="dropSections($event)"
+        >
+          <div cdkDropListGroup>
+            @for (section of current.sections; track section.id) {
+              @if (!filtered() || tasks(section).length || showEmpty()) {
+                <section class="task-section" cdkDrag [cdkDragDisabled]="filtered() || busy()">
+                  <div class="section-heading">
+                    <button
+                      class="icon-button section-grip"
+                      cdkDragHandle
+                      aria-label="Déplacer la section"
+                      [disabled]="filtered() || busy()"
+                    >
+                      <app-icon name="grip" /></button
+                    ><button
+                      class="section-toggle"
+                      [attr.aria-label]="
+                        section.title + ' ' + sectionDone(section) + ' / ' + section.tasks.length
+                      "
+                      [attr.aria-expanded]="!prefs.collapsed().includes(section.id)"
+                      (click)="prefs.toggleSection(section.id)"
+                    >
+                      <app-icon
+                        class="section-chevron"
+                        [class.expanded]="!prefs.collapsed().includes(section.id)"
+                        name="chevron"
+                      />
+                      <span class="section-number" aria-hidden="true">{{
+                        ($index + 1).toString().padStart(2, '0')
+                      }}</span>
+                    </button>
+                    <app-section-heading
+                      [section]="section"
+                      (changed)="sectionChanged($event)"
+                      (continueWriting)="focusQuick(section.id)"
+                    />
+                    <span class="section-count"
+                      >{{ sectionDone(section) }} / {{ section.tasks.length }}</span
+                    >
+                    <div class="section-actions">
+                      <button
+                        class="icon-button"
+                        aria-label="Ajouter une tâche"
+                        (click)="focusQuick(section.id)"
+                      >
+                        <app-icon name="plus" />
+                      </button>
+                      <details class="action-menu">
+                        <summary class="icon-button" aria-label="Actions de la section">
+                          <app-icon name="more" />
+                        </summary>
+                        <div class="menu-content">
+                          <button (click)="startRenameSection(section)">Renommer</button
+                          ><button
+                            [disabled]="filtered() || busy() || $first"
+                            (click)="moveSection(section, -1)"
+                          >
+                            Monter</button
+                          ><button
+                            [disabled]="filtered() || busy() || $last"
+                            (click)="moveSection(section, 1)"
+                          >
+                            Descendre</button
+                          ><button class="danger" (click)="deleteSection(section)">
+                            Supprimer la section
+                          </button>
+                        </div>
+                      </details>
+                    </div>
+                  </div>
+                  @if (!prefs.collapsed().includes(section.id)) {
+                    <div
+                      class="task-list"
+                      cdkDropList
+                      [id]="section.id"
+                      [cdkDropListData]="tasks(section)"
+                      [cdkDropListDisabled]="filtered() || busy()"
+                      (cdkDropListDropped)="dropTask($event)"
+                    >
+                      @for (task of tasks(section); track task.id) {
+                        @if (
+                          pendingLine()?.sectionId === section.id &&
+                          pendingLine()?.anchorId === task.id &&
+                          pendingLine()?.side === 'before'
+                        ) {
+                          <app-note-composer
+                            [listId]="current.id"
+                            [sectionId]="section.id"
+                            [sectionTitle]="section.title"
+                            [anchorId]="task.id"
+                            side="before"
+                            [autofocus]="true"
+                            (committed)="composed(section, $event)"
+                            (headingCommitted)="headingComposed($event)"
+                            (cancel)="cancelNew(section)"
+                          />
+                        }
+                        <app-task-row
+                          cdkDrag
+                          [cdkDragData]="task"
+                          [cdkDragDisabled]="filtered() || busy()"
+                          [task]="task"
+                          [deleteLine]="deleteLine"
+                          [makeHeading]="makeHeading"
+                          [categories]="current.categories"
+                          [disabled]="busy()"
+                          (open)="selected.set($event)"
+                          (taskChange)="changeTask(task, $event)"
+                          (continueLine)="continueAfter(section, task, $event)"
+                          (navigate)="navigateLine(section, task, $event)"
+                          (remove)="removeLine($event)"
+                        />
+                        @if (
+                          pendingLine()?.sectionId === section.id &&
+                          pendingLine()?.anchorId === task.id &&
+                          pendingLine()?.side === 'after'
+                        ) {
+                          <app-note-composer
+                            [listId]="current.id"
+                            [sectionId]="section.id"
+                            [sectionTitle]="section.title"
+                            [anchorId]="task.id"
+                            [autofocus]="true"
+                            (committed)="composed(section, $event)"
+                            (headingCommitted)="headingComposed($event)"
+                            (cancel)="cancelNew(section)"
+                          />
+                        }
+                      }
+                      @if (!tasks(section).length) {
+                        <p class="section-empty">
+                          {{
+                            filtered()
+                              ? 'Aucune tâche ne correspond aux filtres.'
+                              : 'Écrivez la première note de cette section.'
+                          }}
+                        </p>
+                      }
+                    </div>
+                    <app-note-composer
+                      [listId]="current.id"
+                      [sectionId]="section.id"
+                      [sectionTitle]="section.title"
+                      (committed)="composed(section, $event)"
+                      (headingCommitted)="headingComposed($event)"
+                      (cancel)="cancelNew(section)"
+                    />
+                  }
+                </section>
+              }
+            }
+          </div>
+        </div>
+        @if (filtered() && !resultCount()) {
+          <div class="empty-state small">
+            <app-icon name="search" />
+            <h2>Aucune tâche trouvée</h2>
+            <p>Essayez un autre mot ou ajustez vos filtres.</p>
+            <button class="button" (click)="resetFilters()">Réinitialiser les filtres</button>
+          </div>
+        }
+        @if (!current.sections.length) {
+          <div class="empty-state">
+            <div class="empty-illustration"><app-icon name="layers" /></div>
+            <span class="eyebrow">UN NOUVEAU DÉPART</span>
+            <h2>Une page pour la réunion.</h2>
+            <p>
+              Notez une idée, une décision ou une action.<br />Vos lignes s’enregistrent
+              automatiquement.
+            </p>
+            <button class="button primary" (click)="startNote()">
+              <app-icon name="plus" /> Écrire ma première note
+            </button>
+          </div>
+        } @else {
+          <button class="add-section-bottom" [disabled]="busy()" (click)="openSection()">
+            <app-icon name="plus" /> Ajouter une section
+          </button>
+        }
+      } @else if (!error()) {
+        <div class="empty-state welcome">
+          <div class="empty-illustration"><app-icon name="check" /></div>
+          <span class="eyebrow">BIENVENUE DANS PADTODO</span>
+          <h1>Les idées deviennent<br />des choses accomplies.</h1>
+          <p>
+            Les projets de votre équipe, réunis au même endroit.<br />Simple, partagé et toujours à
+            jour.
+          </p>
+          <button class="button primary" (click)="openList()">
+            <app-icon name="plus" /> Créer votre première liste</button
+          ><span class="welcome-note">Sans compte. Sans friction. Ensemble.</span>
+        </div>
+      }
+    </main>
+  </div>
+</div>
+@if (selected(); as task) {
+  <app-task-detail
+    [task]="task"
+    [categories]="list()?.categories ?? []"
+    [sections]="list()?.sections ?? []"
+    [busy]="busy()"
+    [stale]="stale()"
+    (close)="selected.set(null)"
+    (save)="saveDetail($event)"
+    (duplicate)="duplicate()"
+    (remove)="confirmTask()"
+  />
+}
+@if (dialog(); as d) {
+  <div class="modal-scrim" (click)="!busy() && dialog.set(null)"></div>
+  <section
+    class="modal"
+    cdkTrapFocus
+    [cdkTrapFocusAutoCapture]="true"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="dialog-title"
+    (keydown.escape)="!busy() && dialog.set(null)"
+  >
+    <header>
+      <div>
+        <span class="eyebrow">{{
+          d.kind === 'confirm' ? 'ACTION DÉFINITIVE' : 'ESPACE PARTAGÉ'
+        }}</span>
+        <h2 id="dialog-title">{{ d.title }}</h2>
+      </div>
+      <button
+        class="icon-button"
+        [disabled]="busy()"
+        aria-label="Fermer"
+        (click)="dialog.set(null)"
+      >
+        <app-icon name="close" />
+      </button>
+    </header>
+    @if (d.kind === 'confirm') {
+      <p class="confirm-message">{{ d.message }}</p>
+      <footer>
+        <button class="button" [disabled]="busy()" (click)="dialog.set(null)">Annuler</button
+        ><button class="button destructive" [disabled]="busy()" (click)="submitDialog()">
+          {{ busy() ? 'Suppression…' : 'Supprimer définitivement' }}
+        </button>
+      </footer>
+    } @else {
+      <form [formGroup]="form" (ngSubmit)="submitDialog()">
+        <label for="entity-name"
+          >{{ d.kind === 'section' ? 'Titre de la section' : 'Nom'
+          }}<input
+            id="entity-name"
+            formControlName="name"
+            autofocus
+            [attr.maxlength]="d.kind === 'category' ? 60 : d.kind === 'section' ? 160 : 120"
+            [placeholder]="
+              d.kind === 'list'
+                ? 'Ex. Refonte frontend'
+                : d.kind === 'section'
+                  ? 'Ex. Interface utilisateur'
+                  : 'Ex. Backend'
+            "
+        /></label>
+        @if (d.kind === 'list') {
+          <label for="entity-description"
+            >Description <span>facultative</span
+            ><textarea
+              id="entity-description"
+              formControlName="description"
+              rows="3"
+              placeholder="Ce que l’équipe va accomplir…"
+              maxlength="10000"
+            ></textarea>
+          </label>
+        }
+        @if (d.kind !== 'section') {
+          <label class="color-field" for="entity-color"
+            >Couleur du {{ d.kind === 'list' ? 'projet' : 'repère'
+            }}<input type="color" id="entity-color" formControlName="color" /><span>{{
+              form.controls.color.value
+            }}</span></label
+          >
+        }
+        <footer>
+          @if (d.kind === 'list' && d.id) {
+            <button
+              class="icon-button danger delete-list"
+              type="button"
+              aria-label="Supprimer la liste"
+              [disabled]="busy()"
+              (click)="deleteList()"
+            >
+              <app-icon name="trash" />
+            </button>
+          }
+          <button type="button" class="button" [disabled]="busy()" (click)="dialog.set(null)">
+            Annuler</button
+          ><button type="submit" class="button primary" [disabled]="form.invalid || busy()">
+            {{ busy() ? 'Enregistrement…' : d.id ? 'Enregistrer' : 'Créer' }}
+          </button>
+        </footer>
+      </form>
+    }
+  </section>
+}
+@if (notice()) {
+  <div class="toast" [class.error]="notice().startsWith('Erreur')" role="status">
+    <app-icon [name]="notice().startsWith('Erreur') ? 'info' : 'check'" />{{ notice()
+    }}<button class="icon-button" aria-label="Fermer la notification" (click)="notice.set('')">
+      <app-icon name="close" />
+    </button>
+  </div>
+}
+
+@if (undo(); as record) {
+  <div class="undo-bar" role="status">
+    <app-icon name="trash" /><span>Ligne supprimée</span
+    ><button (click)="restoreLine()" [disabled]="restoring()">
+      {{ restoring() ? 'Restauration…' : 'Annuler' }} <kbd>⌘ / Ctrl Z</kbd></button
+    ><button class="icon-button" aria-label="Fermer l’annulation" (click)="undo.set(null)">
+      <app-icon name="close" />
+    </button>
+  </div>
+}

@@ -1,0 +1,53 @@
+{
+  "name": "pad-todo",
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "prisma generate && node scripts/dev.mjs",
+    "build": "prisma generate && ng build",
+    "start": "node --env-file-if-exists=.env dist/pad-todo/server/server.mjs",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "prisma generate && tsx prisma/seed.ts",
+    "test": "prisma generate && tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test",
+    "typecheck": "prisma generate && tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.server.json",
+    "format:check": "prettier --check src/app src/server src/server.ts src/styles.scss tests e2e prisma/seed.ts"
+  },
+  "private": true,
+  "packageManager": "npm@11.19.0",
+  "dependencies": {
+    "@angular/cdk": "^22.2.3",
+    "@angular/common": "^22.2.0",
+    "@angular/compiler": "^22.2.0",
+    "@angular/core": "^22.2.0",
+    "@angular/forms": "^22.2.0",
+    "@angular/platform-browser": "^22.2.0",
+    "@angular/platform-server": "^22.2.0",
+    "@angular/router": "^22.2.0",
+    "@angular/ssr": "^22.2.5",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "pg": "^8.16.3",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@angular/build": "^22.2.5",
+    "@angular/cli": "^22.2.5",
+    "@angular/compiler-cli": "^22.2.0",
+    "@playwright/test": "^1.58.2",
+    "@types/express": "^5.0.1",
+    "@types/node": "^22.12.0",
+    "@types/pg": "^8.15.6",
+    "prettier": "^3.8.1",
+    "prisma": "7.10.1",
+    "tsx": "^4.21.0",
+    "typescript": "~6.0.2"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=24.15 <25"
+  }
+}

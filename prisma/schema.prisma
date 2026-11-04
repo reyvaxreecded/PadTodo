@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client"
+  output = "../src/generated/prisma"
+}
+datasource db {
+  provider = "postgresql"
+}
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+model TaskList {
+  id String @id @default(uuid()) @db.Uuid
+  name String @db.VarChar(120)
+  description String @default("") @db.Text
+  color String @default("#65866b") @db.VarChar(7)
+  position Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  sections TaskSection[]
+  categories Category[]
+  @@index([position])
+}
+model TaskSection {
+  id String @id @default(uuid()) @db.Uuid
+  title String @db.VarChar(160)
+  level Int @default(2)
+  listId String @db.Uuid
+  list TaskList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  position Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tasks Task[]
+  @@index([listId, position])
+}
+model Category {
+  id String @id @default(uuid()) @db.Uuid
+  name String @db.VarChar(60)
+  color String @default("#65866b") @db.VarChar(7)
+  listId String @db.Uuid
+  list TaskList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  tasks Task[]
+  @@index([listId])
+}
+model Task {
+  id String @id @default(uuid()) @db.Uuid
+  title String @db.VarChar(300)
+  description String @default("") @db.Text
+  status TaskStatus @default(TODO)
+  priority TaskPriority @default(MEDIUM)
+  categoryId String? @db.Uuid
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  sectionId String @db.Uuid
+  section TaskSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  position Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  completedAt DateTime?
+  @@index([sectionId, position])
+  @@index([status])
+  @@index([priority])
+  @@index([categoryId])
+}
